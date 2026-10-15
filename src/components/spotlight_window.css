@@ -18,6 +18,11 @@ html, body {
     padding: 12px;
     box-sizing: border-box;
 }
+.sw-content {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+}
 .sw-pill {
     display: flex;
     align-items: center;

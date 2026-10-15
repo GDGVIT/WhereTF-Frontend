@@ -4,32 +4,40 @@ use std::time::Duration;
 
 /// Width of the spotlight window (kept constant; only height changes).
 const SPOTLIGHT_WIDTH: u32 = 1230;
+const MAX_HEIGHT: u32 = 460;
 
-/// Floating, always-on-top desktop search bar (macOS Spotlight-style).
-/// A pill-shaped input with live results as you type. Runs in its own window.
+/// Floating, always-on-top desktop search bar (Spotlight-style).
+/// A pill-shaped input with live results as you type. Own window, resized to
+/// fit its content (no transparency needed).
 #[component]
 pub fn SpotlightWindow() -> Element {
     let query = use_signal(String::new);
     let results = use_signal(|| Vec::<api::SearchResult>::new());
     let window = dioxus_desktop::use_window();
 
-    // Keep the (opaque) window sized to its content: just the pill when idle,
-    // growing as results appear.
+    // Size the window to the actual rendered content height (measured in the DOM
+    // after layout) so there are no empty gaps regardless of platform scaling.
     let window_resize = window.clone();
     use_effect(move || {
-        let q = query.read().clone();
-        let n = results.read().len();
-        let base = 84u32; // pill + padding
-        let height = if q.trim().is_empty() {
-            base
-        } else if n == 0 {
-            base + 56 // "No results"
-        } else {
-            (base + 16 + (n as u32) * 40).min(460)
-        };
-        let _ = window_resize.set_inner_size(
-            dioxus_desktop::tao::dpi::PhysicalSize::new(SPOTLIGHT_WIDTH, height),
-        );
+        // Re-run whenever the content changes.
+        let _ = query.read().len();
+        let _ = results.read().len();
+        let wr = window_resize.clone();
+        spawn(async move {
+            // Let the DOM paint before measuring.
+            tokio::time::sleep(Duration::from_millis(60)).await;
+            let js = "(() => { const el = document.querySelector('.sw-content'); \
+                      if (!el) return 0; \
+                      return Math.ceil(el.getBoundingClientRect().height) + 24; })()";
+            if let Ok(v) = dioxus::document::eval(js).await {
+                if let Some(h) = v.as_u64() {
+                    let h = (h as u32).clamp(72, MAX_HEIGHT);
+                    let _ = wr.set_inner_size(
+                        dioxus_desktop::tao::dpi::PhysicalSize::new(SPOTLIGHT_WIDTH, h),
+                    );
+                }
+            }
+        });
     });
 
     // Live search: runs whenever the query changes (debounced).
@@ -40,7 +48,6 @@ pub fn SpotlightWindow() -> Element {
             results.set(Vec::new());
             return;
         }
-        // Debounce typing.
         let qq = q.clone();
         spawn(async move {
             tokio::time::sleep(Duration::from_millis(180)).await;
@@ -57,38 +64,39 @@ pub fn SpotlightWindow() -> Element {
                     window.set_visible(false);
                 }
             },
-            div { class: "sw-pill",
-                span { class: "sw-icon", "\u{2315}" }
-                input {
-                    class: "sw-input",
-                    r#type: "text",
-                    placeholder: "Search your files\u{2026}",
-                    autofocus: true,
-                    value: "{query}",
-                    oninput: {
-                        let mut q = query.clone();
-                        move |e| q.set(e.value())
-                    },
+            div { class: "sw-content",
+                div { class: "sw-pill",
+                    span { class: "sw-icon", "\u{2315}" }
+                    input {
+                        class: "sw-input",
+                        r#type: "text",
+                        placeholder: "Search your files\u{2026}",
+                        autofocus: true,
+                        value: "{query}",
+                        oninput: {
+                            let mut q = query.clone();
+                            move |e| q.set(e.value())
+                        },
+                    }
                 }
-            }
-            if !query.read().trim().is_empty() {
-                div { class: "sw-results",
-                    if results.read().is_empty() {
-                        div { class: "sw-empty", "No results" }
-                    } else {
-                        for r in results.read().iter() {
-                            div {
-                                class: "sw-result",
-                                onclick: {
-                                    let path = r.file_path.clone();
-                                    let window = window.clone();
-                                    move |_| {
-                                        let _ = open::that(&path);
-                                        window.set_visible(false);
-                                    }
-                                },
-                                span { class: "sw-result-name", "{r.file_path}" }
-                                span { class: "sw-result-score", "{r.score:.2}" }
+                if !query.read().trim().is_empty() {
+                    div { class: "sw-results",
+                        if results.read().is_empty() {
+                            div { class: "sw-empty", "No results" }
+                        } else {
+                            for r in results.read().iter() {
+                                div {
+                                    class: "sw-result",
+                                    onclick: {
+                                        let path = r.file_path.clone();
+                                        let window = window.clone();
+                                        move |_| {
+                                            let _ = open::that(&path);
+                                            window.set_visible(false);
+                                        }
+                                    },
+                                    span { class: "sw-result-name", "{r.file_path}" }
+                                }
                             }
                         }
                     }

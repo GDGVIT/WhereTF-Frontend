@@ -38,7 +38,6 @@ pub fn ResultsScreen(props: ResultsScreenProps) -> Element {
         let related: Vec<SearchResult> = unique.into_iter().skip(1).collect();
         (best, related)
     };
-    let max_score = best.as_ref().map(|b| b.score).unwrap_or(1.0);
 
     rsx! {
         div { class: "results-screen",
@@ -52,7 +51,6 @@ pub fn ResultsScreen(props: ResultsScreenProps) -> Element {
                 div { class: "primary-result",
                     div { class: "primary-result-heading",
                         div { class: "primary-result-label", "Most relevant file" }
-                        div { class: "primary-result-score", "{score_fmt(best.score, max_score)}%" }
                     }
                     div {
                         class: "primary-result-path",
@@ -79,21 +77,11 @@ pub fn ResultsScreen(props: ResultsScreenProps) -> Element {
                             move |_| h.call(path.clone())
                         },
                         div { class: "result-row-name", "{file_name(&r.file_path)}" }
-                        div { class: "result-row-score", "{score_fmt(r.score, max_score)}%" }
                     }
                 }
             }
         }
     }
-}
-
-/// Display score as a percentage *relative to the best hit* (best = 100%).
-fn score_fmt(score: f64, max_score: f64) -> String {
-    if max_score <= 0.0 {
-        return "0".to_string();
-    }
-    let pct = (score / max_score) * 100.0;
-    format!("{:.0}", pct.clamp(1.0, 100.0))
 }
 
 fn file_name(path: &str) -> String {
