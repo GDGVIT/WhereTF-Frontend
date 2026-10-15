@@ -619,11 +619,18 @@ fn app() -> Element {
                     .with_position(pos)
                     .with_decorations(false)
                     .with_always_on_top(true)
-                    .with_transparent(false)
+                    .with_transparent(true)
                     .with_visible(false);
-                let cfg = Config::new().with_window(wb).with_custom_head(css);
+                // with_transparent(true) makes dioxus create the webview with
+                // transparency; also force an alpha-0 background so WebView2
+                // doesn't paint white.
+                let cfg = Config::new()
+                    .with_window(wb)
+                    .with_custom_head(css)
+                    .with_background_color((0, 0, 0, 0));
                 let dom = dioxus_core::VirtualDom::new(components::spotlight_window::SpotlightWindow);
                 let win = dioxus_desktop::window().new_window(dom, cfg).await;
+                let _ = win.webview.set_background_color((0, 0, 0, 0));
                 println!("[spotlight] floating window ready");
                 spotlight_window.set(Some(win));
             });
