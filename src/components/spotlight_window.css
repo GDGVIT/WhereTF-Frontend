@@ -1,13 +1,16 @@
 html, body {
     margin: 0;
     padding: 0;
-    background: transparent !important;
+    /* Solid dark background (not transparent): on Windows WebView2 the webview
+       paints white when the window is transparent, so a solid colour is the
+       only reliable cross-platform look. */
+    background: #0d1111 !important;
     overflow: hidden;
 }
 .sw-root {
     width: 100vw;
     height: 100vh;
-    background: transparent;
+    background: #0d1111;
     color: #ded8cc;
     font-family: "JetBrains Mono", ui-monospace, monospace;
     display: flex;

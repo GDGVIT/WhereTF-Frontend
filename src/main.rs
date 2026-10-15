@@ -619,7 +619,7 @@ fn app() -> Element {
                     .with_position(pos)
                     .with_decorations(false)
                     .with_always_on_top(true)
-                    .with_transparent(true)
+                    .with_transparent(false)
                     .with_visible(false);
                 let cfg = Config::new().with_window(wb).with_custom_head(css);
                 let dom = dioxus_core::VirtualDom::new(components::spotlight_window::SpotlightWindow);
