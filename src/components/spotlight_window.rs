@@ -2,6 +2,9 @@ use crate::api;
 use dioxus::prelude::*;
 use std::time::Duration;
 
+/// Width of the spotlight window (kept constant; only height changes).
+const SPOTLIGHT_WIDTH: u32 = 1230;
+
 /// Floating, always-on-top desktop search bar (macOS Spotlight-style).
 /// A pill-shaped input with live results as you type. Runs in its own window.
 #[component]
@@ -9,6 +12,25 @@ pub fn SpotlightWindow() -> Element {
     let query = use_signal(String::new);
     let results = use_signal(|| Vec::<api::SearchResult>::new());
     let window = dioxus_desktop::use_window();
+
+    // Keep the (opaque) window sized to its content: just the pill when idle,
+    // growing as results appear.
+    let window_resize = window.clone();
+    use_effect(move || {
+        let q = query.read().clone();
+        let n = results.read().len();
+        let base = 84u32; // pill + padding
+        let height = if q.trim().is_empty() {
+            base
+        } else if n == 0 {
+            base + 56 // "No results"
+        } else {
+            (base + 16 + (n as u32) * 40).min(460)
+        };
+        let _ = window_resize.set_inner_size(
+            dioxus_desktop::tao::dpi::PhysicalSize::new(SPOTLIGHT_WIDTH, height),
+        );
+    });
 
     // Live search: runs whenever the query changes (debounced).
     use_effect(move || {

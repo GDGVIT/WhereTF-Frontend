@@ -1,13 +1,14 @@
 html, body {
     margin: 0;
     padding: 0;
-    background: transparent !important;
+    /* Opaque card window (no transparency needed); it resizes to fit content. */
+    background: #0d1111 !important;
     overflow: hidden;
 }
 .sw-root {
     width: 100vw;
     height: 100vh;
-    background: transparent;
+    background: #0d1111;
     color: #ded8cc;
     font-family: "JetBrains Mono", ui-monospace, monospace;
     display: flex;
