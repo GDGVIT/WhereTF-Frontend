@@ -13,16 +13,32 @@ pub struct ResultsScreenProps {
 
 #[component]
 pub fn ResultsScreen(props: ResultsScreenProps) -> Element {
-    let unique: Vec<&SearchResult> = {
-        let mut seen = std::collections::HashSet::new();
-        props.results.iter().filter(|r| seen.insert(&r.file_path)).collect()
+    // Deduplicate by file path (keeping the best-scoring chunk) and order by
+    // score, so "Most relevant" is genuinely the highest and the list descends.
+    let (best, related) = {
+        let mut by_path: std::collections::HashMap<String, SearchResult> =
+            std::collections::HashMap::new();
+        for r in &props.results {
+            by_path
+                .entry(r.file_path.clone())
+                .and_modify(|e| {
+                    if r.score > e.score {
+                        *e = r.clone();
+                    }
+                })
+                .or_insert_with(|| r.clone());
+        }
+        let mut unique: Vec<SearchResult> = by_path.into_values().collect();
+        unique.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        let best = unique.first().cloned();
+        let related: Vec<SearchResult> = unique.into_iter().skip(1).collect();
+        (best, related)
     };
-    let best = unique.first().copied();
-    let related: &[&SearchResult] = if unique.len() > 1 {
-        &unique[1..]
-    } else {
-        &[]
-    };
+    let max_score = best.as_ref().map(|b| b.score).unwrap_or(1.0);
 
     rsx! {
         div { class: "results-screen",
@@ -32,11 +48,11 @@ pub fn ResultsScreen(props: ResultsScreenProps) -> Element {
             }
             div { class: "results-time", "{props.search_time:.2}s" }
 
-            if let Some(best) = best {
+            if let Some(best) = best.as_ref() {
                 div { class: "primary-result",
                     div { class: "primary-result-heading",
                         div { class: "primary-result-label", "Most relevant file" }
-                        div { class: "primary-result-score", "{score_fmt(best.score)}%" }
+                        div { class: "primary-result-score", "{score_fmt(best.score, max_score)}%" }
                     }
                     div {
                         class: "primary-result-path",
@@ -54,7 +70,7 @@ pub fn ResultsScreen(props: ResultsScreenProps) -> Element {
                 hr { class: "section-divider" }
                 div { class: "related-heading", "RELATED \u{2014} {related.len()}" }
 
-                for r in related {
+                for r in related.iter() {
                     div {
                         class: "result-row",
                         onclick: {
@@ -63,7 +79,7 @@ pub fn ResultsScreen(props: ResultsScreenProps) -> Element {
                             move |_| h.call(path.clone())
                         },
                         div { class: "result-row-name", "{file_name(&r.file_path)}" }
-                        div { class: "result-row-score", "{score_fmt(r.score)}%" }
+                        div { class: "result-row-score", "{score_fmt(r.score, max_score)}%" }
                     }
                 }
             }
@@ -71,8 +87,13 @@ pub fn ResultsScreen(props: ResultsScreenProps) -> Element {
     }
 }
 
-fn score_fmt(score: f64) -> String {
-    format!("{:.0}", (score * 100.0).min(99.0).max(1.0))
+/// Display score as a percentage *relative to the best hit* (best = 100%).
+fn score_fmt(score: f64, max_score: f64) -> String {
+    if max_score <= 0.0 {
+        return "0".to_string();
+    }
+    let pct = (score / max_score) * 100.0;
+    format!("{:.0}", pct.clamp(1.0, 100.0))
 }
 
 fn file_name(path: &str) -> String {
