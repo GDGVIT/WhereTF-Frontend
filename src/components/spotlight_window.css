@@ -1,13 +1,14 @@
 html, body {
     margin: 0;
     padding: 0;
-    background: transparent !important;
+    /* Opaque card window (no transparency needed); it resizes to fit content. */
+    background: #0d1111 !important;
     overflow: hidden;
 }
 .sw-root {
     width: 100vw;
     height: 100vh;
-    background: transparent;
+    background: #0d1111;
     color: #ded8cc;
     font-family: "JetBrains Mono", ui-monospace, monospace;
     display: flex;
@@ -16,6 +17,11 @@ html, body {
     justify-content: flex-start;
     padding: 12px;
     box-sizing: border-box;
+}
+.sw-content {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
 }
 .sw-pill {
     display: flex;
